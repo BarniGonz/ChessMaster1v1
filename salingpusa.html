@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Chess Game v1.3 - Global Multiplayer</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1280&q=80') no-repeat center center fixed;
+    background-size: cover;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #4a3a2a;
+    user-select: none;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+  }
+  #container {
+    background: url('https://www.transparenttextures.com/patterns/paper-fibers.png');
+    background-color: #f3e7d3cc;
+    border-radius: 16px;
+    box-shadow: 0 0 30px rgba(107, 76, 59, 0.7);
+    padding: 12px;
+    max-width: 600px; width: 95vw;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  #menu { width: 100%; display: flex; justify-content: center; gap: 10px; margin-bottom: 12px; }
+  #menu button {
+    background-color: #6b4c3b; border: none; border-radius: 8px; color: #f3e7d3cc;
+    font-weight: 700; padding: 8px 16px; cursor: pointer; transition: background-color 0.3s;
+    flex: 1; min-width: 80px;
+  }
+  #menu button:hover, #menu button:focus { background-color: #4a3a2a; outline: none; }
+  #chessboard {
+    width: 100%; aspect-ratio: 1 / 1; display: grid;
+    grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+    border: 10px solid #6b4c3b; border-radius: 12px; box-shadow: inset 0 0 12px #4a3a2a;
+    background-color: #d6c2a0;
+  }
+  .square {
+    width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;
+    font-size: 0; cursor: pointer; transition: background-color 0.3s; user-select: none;
+  }
+  .light { background-color: #f3e7d3cc; }
+  .dark { background-color: #b89b7bcc; }
+  .square.highlight { background-color: #f0a500cc !important; }
+  .piece {
+    width: 85%; height: 85%; user-drag: none; user-select: none; pointer-events: none;
+    image-rendering: pixelated; transition: transform 0.2s;
+  }
+  #status { margin-top: 14px; font-weight: 700; font-size: 1.25rem; text-align: center; text-shadow: 1px 1px 2px #fff; min-height: 1.5em; }
+  #monetization { margin-top: 10px; font-size: 0.85rem; color: #6b4c3b; text-align: center; max-width: 600px; }
+  /* Toast styles */
+  #toast {
+    display: none;
+    position: fixed;
+    top: 24px; left: 50%; transform: translateX(-50%);
+    background: #f0a500ee;
+    color: #4a3a2a;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px #6b4c3b88;
+    padding: 18px 32px;
+    font-size: 1.3rem;
+    font-weight: bold;
+    z-index: 9999;
+    letter-spacing: 1px;
+    animation: toastPop 0.5s cubic-bezier(.36,1.44,.64,1) 1;
+  }
+  @keyframes toastPop {
+    from { transform: translateX(-50%) scale(0.7); opacity: 0;}
+    to { transform: translateX(-50%) scale(1); opacity: 1;}
+  }
+  /* Multiplayer UI */
+  #auth-container {
+    margin-bottom: 15px;
+    text-align: center;
+  }
+  #user-info {
+    margin-bottom: 10px;
+    font-weight: bold;
+    color: #6b4c3b;
+  }
+  #multiplayer-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    margin-bottom: 15px;
+  }
+  .mp-row {
+    display: flex;
+    gap: 10px;
+  }
+  #game-id-display {
+    background: #6b4c3b;
+    color: #f3e7d3;
+    padding: 8px;
+    border-radius: 8px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 10px;
+    display: none;
+  }
+  input[type="text"] {
+    flex: 1;
+    padding: 8px;
+    border: 2px solid #6b4c3b;
+    border-radius: 8px;
+    background: #f3e7d3;
+    color: #4a3a2a;
+    font-size: 1rem;
+  }
+  #leaderboard {
+    width: 100%;
+    margin-top: 15px;
+    background: #f3e7d3dd;
+    border-radius: 8px;
+    padding: 10px;
+    display: none;
+  }
+  #leaderboard h3 {
+    text-align: center;
+    margin-top: 0;
+    color: #6b4c3b;
+  }
+  #leaderboard-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+  }
+  #leaderboard-list li {
+    padding: 5px;
+    border-bottom: 1px solid #d6c2a0;
+    display: flex;
+    justify-content: space-between;
+  }
+  #leaderboard-list li:last-child {
+    border-bottom: none;
+  }
+  .waiting-message {
+    text-align: center;
+    color: #6b4c3b;
+    font-style: italic;
+    margin: 10px 0;
+  }
+  @media (max-width: 480px) {
+    #container { padding: 8px; border-radius: 10px; }
+    #status { font-size: 1rem; margin-top: 10px; }
+    #monetization { font-size: 0.75rem; margin-top: 8px; }
+    #menu button { font-size: 0.9rem; padding: 6px 10px; min-width: 60px; }
+    #toast { font-size: 1rem; padding: 12px 16px; }
+    .mp-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div id="container" role="main" aria-label="Chess Game container">
+  <div id="auth-container">
+    <button id="sign-in-btn" style="background-color: #4285F4; color: white; padding: 10px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px;">
+      <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+        <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path>
+        <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path>
+        <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path>
+        <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path>
+      </svg>
+      Sign in with Google
+    </button>
+    <div id="user-info" style="display: none;"></div>
+  </div>
+  
+  <div id="multiplayer-controls">
+    <div id="game-id-display"></div>
+    <div class="mp-row">
+      <button id="create-game-btn">Create Game</button>
+      <button id="show-leaderboard-btn">Leaderboard</button>
+    </div>
+    <div class="mp-row">
+      <input type="text" id="join-game-id" placeholder="Enter Game ID">
+      <button id="join-game-btn">Join Game</button>
+    </div>
+    <div id="waiting-message" class="waiting-message" style="display: none;">Waiting for opponent to join...</div>
+  </div>
+  
+  <nav id="menu" aria-label="Game menu">
+    <button id="startBtn" aria-controls="chessboard">Start Local Game</button>
+    <button id="restartBtn" aria-controls="chessboard" disabled>Restart Game</button>
+    <button id="aboutBtn" aria-haspopup="dialog">About</button>
+  </nav>
+
+  <div id="chessboard" aria-label="Chessboard" role="grid"></div>
+  <div id="status" aria-live="polite" aria-atomic="true">Sign in and create/join a game</div>
+  
+  <div id="leaderboard">
+    <h3>Leaderboard</h3>
+    <ul id="leaderboard-list"></ul>
+  </div>
+  
+  <div id="monetization" aria-label="Monetization info">
+    <small>Enjoy the game? Support us by enabling ads or upgrading to premium for an ad-free experience!</small>
+  </div>
+</div>
+<!-- Toast for win/draw -->
+<div id="toast"></div>
+
+<div id="aboutDialog" role="dialog" aria-modal="true" aria-labelledby="aboutTitle" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);background:#f3e7d3cc;padding:20px;border-radius:12px;box-shadow:0 0 30px rgba(107, 76, 59, 0.9);max-width:90vw;max-height:80vh;overflow:auto;z-index:1000;">
+  <h2 id="aboutTitle" style="color:#6b4c3b;">About Chess Game</h2>
+  <p style="color:#4a3a2a;line-height:1.4;">
+    Global multiplayer chess game with real-time gameplay.<br>
+    Sign in with Google to track your stats on the leaderboard.<br>
+    Create a game and share the ID with a friend to play together.<br>
+    Or play locally against our AI.<br><br>
+    Version 1.3 - Global Multiplayer Edition
+  </p>
+  <button id="closeAbout" style="background:#6b4c3b;color:#f3e7d3cc;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:700;">Close</button>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
+  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+  import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBel6TBa5xKQjb-nBnZfHuJ2E_ku7KHPuU",
+    authDomain: "chess-17f47.firebaseapp.com",
+    projectId: "chess-17f47",
+    storageBucket: "chess-17f47.firebasestorage.app",
+    messagingSenderId: "812146595880",
+    appId: "1:812146595880:web:4992ec777dcad084ec7d1d",
+    measurementId: "G-0JPN49H06Z"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  
+  // Piece images - using direct paths for reliability
+  const pieceImages = {
+    'wP': './wP.png',
+    'wR': './wR.png',
+    'wN': './wN.png',
+    'wB': './wB.png',
+    'wQ': './wQ.png',
+    'wK': './wK.png',
+    'bP': './bP.png',
+    'bR': './bR.png',
+    'bN': './bN.png',
+    'bB': './bB.png',
+    'bQ': './bQ.png',
+    'bK': './bK.png',
+  };
+
+  const board = document.getElementById('chessboard');
+  const status = document.getElementById('status');
+  const startBtn = document.getElementById('startBtn');
+  const restartBtn = document.getElementById('restartBtn');
+  const aboutBtn = document.getElementById('aboutBtn');
+  const aboutDialog = document.getElementById('aboutDialog');
+  const closeAbout = document.getElementById('closeAbout');
+  const toast = document.getElementById('toast');
+  const signInBtn = document.getElementById('sign-in-btn');
+  const userInfo = document.getElementById('user-info');
+  const createGameBtn = document.getElementById('create-game-btn');
+  const joinGameBtn = document.getElementById('join-game-btn');
+  const joinGameId = document.getElementById('join-game-id');
+  const gameIdDisplay = document.getElementById('game-id-display');
+  const waitingMessage = document.getElementById('waiting-message');
+  const showLeaderboardBtn = document.getElementById('show-leaderboard-btn');
+  const leaderboardDiv = document.getElementById('leaderboard');
+  const leaderboardList = document.getElementById('leaderboard-list');
+
+  const AI_DEPTH = 3; // For local play
+
+  let currentUser = null;
+  let currentGameId = null;
+  let gameUnsubscribe = null;
+  let isMultiplayerGame = false;
+  let playerColor = 'w'; // Default for local play
+
+  let gameState = {
+    board: [],
+    turn: 'w',
+    selected: null,
+    validMoves: [],
+    castlingRights: { wK: true, wQ: true, bK: true, bQ: true },
+    enPassantTarget: null,
+    halfMoveClock: 0,
+    fullMoveNumber: 1,
+    gameOver: false,
+    white: null, // UID for white player
+    black: null, // UID for black player
+    winner: null, // UID of winner
+    status: 'waiting' // waiting, active, completed
+  };
+
+  // Standard chess starting position in FEN
+  const initialFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+
+  // Auth state listener
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // User is signed in
+      currentUser = user;
+      userInfo.textContent = `Signed in as: ${user.displayName}`;
+      userInfo.style.display = 'block';
+      signInBtn.textContent = 'Sign Out';
+      signInBtn.onclick = () => signOut(auth);
+      
+      // Check if user exists in users collection, if not create
+      const userRef = doc(db, 'users', user.uid);
+      getDoc(userRef).then((docSnap) => {
+        if (!docSnap.exists()) {
+          setDoc(userRef, {
+            displayName: user.displayName,
+            email: user.email,
+            photoURL: user.photoURL,
+            wins: 0,
+            losses: 0,
+            draws: 0,
+            created: new Date()
+          });
+        }
+      });
+    } else {
+      // User is signed out
+      currentUser = null;
+      userInfo.style.display = 'none';
+      signInBtn.textContent = 'Sign in with Google';
+      signInBtn.innerHTML = `
+        <svg width="18" height="18" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+          <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path>
+          <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path>
+          <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path>
+          <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path>
+        </svg>
+        Sign in with Google
+      `;
+      signInBtn.onclick = signInWithGoogle;
+      
+      // If in a multiplayer game, leave it
+      leaveMultiplayerGame();
+    }
+  });
+
+  function signInWithGoogle() {
+    const provider = new GoogleAuthProvider();
+    signInWithPopup(auth, provider).catch((error) => {
+      console.error("Error signing in with Google", error);
+      showToast("Error signing in. Please try again.");
+    });
+  }
+
+  // Multiplayer functions
+  async function createGame() {
+    if (!currentUser) {
+      showToast("Please sign in first");
+      return;
+    }
+    
+    // Leave any existing game
+    leaveMultiplayerGame();
+    
+    // Generate a random game ID (6 characters)
+    const gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    currentGameId = gameId;
+    
+    // Reset game state
+    loadFEN(initialFEN);
+    gameState.white = currentUser.uid;
+    gameState.black = null;
+    gameState.status = 'waiting';
+    gameState.winner = null;
+    isMultiplayerGame = true;
+    playerColor = 'w';
+    
+    // Create game document in Firestore
+    const gameRef = doc(db, 'games', gameId);
+    await setDoc(gameRef, {
+      ...serializeGameState(),
+      created: new Date(),
+      lastMove: new Date()
+    });
+    
+    // Subscribe to game updates
+    subscribeToGame(gameId);
+    
+    // Show game ID to share
+    gameIdDisplay.textContent = `Game ID: ${gameId}`;
+    gameIdDisplay.style.display = 'block';
+    waitingMessage.style.display = 'block';
+    
+    status.textContent = "Waiting for opponent to join...";
+    showToast("Game created! Share the ID with a friend.");
+  }
+
+  async function joinGame() {
+    if (!currentUser) {
+      showToast("Please sign in first");
+      return;
+    }
+    
+    const gameId = joinGameId.value.trim().toUpperCase();
+    if (!gameId) {
+      showToast("Please enter a game ID");
+      return;
+    }
+    
+    // Leave any existing game
+    leaveMultiplayerGame();
+    
+    // Check if game exists
+    const gameRef = doc(db, 'games', gameId);
+    const gameDoc = await getDoc(gameRef);
+    
+    if (!gameDoc.exists()) {
+      showToast("Game not found");
+      return;
+    }
+    
+    const gameData = gameDoc.data();
+    
+    // Check if game is already full
+    if (gameData.white && gameData.black) {
+      // If this user is one of the players, rejoin
+      if (gameData.white === currentUser.uid || gameData.black === currentUser.uid) {
+        currentGameId = gameId;
+        isMultiplayerGame = true;
+        playerColor = gameData.white === currentUser.uid ? 'w' : 'b';
+        subscribeToGame(gameId);
+        gameIdDisplay.textContent = `Game ID: ${gameId}`;
+        gameIdDisplay.style.display = 'block';
+        waitingMessage.style.display = 'none';
+        showToast("Rejoined the game!");
+        return;
+      } else {
+        showToast("Game is already full");
+        return;
+      }
+    }
+    
+    // Join as black
+    currentGameId = gameId;
+    isMultiplayerGame = true;
+    playerColor = 'b';
+    
+    // Update game document
+    await updateDoc(gameRef, {
+      black: currentUser.uid,
+      status: 'active',
+      lastMove: new Date()
+    });
+    
+    // Subscribe to game updates
+    subscribeToGame(gameId);
+    
+    gameIdDisplay.textContent = `Game ID: ${gameId}`;
+    gameIdDisplay.style.display = 'block';
+    waitingMessage.style.display = 'none';
+    
+    showToast("Joined the game!");
+  }
+
+  function leaveMultiplayerGame() {
+    if (gameUnsubscribe) {
+      gameUnsubscribe();
+      gameUnsubscribe = null;
+    }
+    
+    currentGameId = null;
+    isMultiplayerGame = false;
+    playerColor = 'w';
+    gameIdDisplay.style.display = 'none';
+    waitingMessage.style.display = 'none';
+    
+    // Reset game state for local play
+    loadFEN(initialFEN);
+    renderBoard();
+    updateStatus();
+  }
+
+  function subscribeToGame(gameId) {
+    const gameRef = doc(db, 'games', gameId);
+    
+    // Unsubscribe from any existing listener
+    if (gameUnsubscribe) {
+      gameUnsubscribe();
+    }
+    
+    // Subscribe to real-time updates
+    gameUnsubscribe = onSnapshot(gameRef, (doc) => {
+      if (!doc.exists()) {
+        showToast("Game no longer exists");
+        leaveMultiplayerGame();
+        return;
+      }
+      
+      const data = doc.data();
+      
+      // Update waiting message
+      if (data.status === 'waiting') {
+        waitingMessage.style.display = 'block';
+        status.textContent = "Waiting for opponent to join...";
+      } else {
+        waitingMessage.style.display = 'none';
+      }
+      
+      // Update game state from Firestore
+      deserializeGameState(data);
+      
+      // Update UI
+      renderBoard();
+      updateStatus();
+      
+      // Handle game over
+      if (data.status === 'completed' && data.winner) {
+        const winnerName = data.winner === currentUser.uid ? "You" : "Opponent";
+        showToast(`${winnerName} won the game!`);
+      } else if (data.status === 'completed' && !data.winner) {
+        showToast("Game ended in a draw!");
+      }
+    });
+  }
+
+  function serializeGameState() {
+    // Convert game state to a format suitable for Firestore
+    return {
+      boardFEN: boardToFEN(),
+      turn: gameState.turn,
+      castlingRights: gameState.castlingRights,
+      enPassantTarget: gameState.enPassantTarget,
+      halfMoveClock: gameState.halfMoveClock,
+      fullMoveNumber: gameState.fullMoveNumber,
+      gameOver: gameState.gameOver,
+      white: gameState.white,
+      black: gameState.black,
+      winner: gameState.winner,
+      status: gameState.status
+    };
+  }
+
+  function deserializeGameState(data) {
+    // Load board from FEN
+    loadFEN(data.boardFEN || initialFEN);
+    
+    // Update other game state properties
+    gameState.turn = data.turn || 'w';
+    gameState.castlingRights = data.castlingRights || { wK: true, wQ: true, bK: true, bQ: true };
+    gameState.enPassantTarget = data.enPassantTarget || null;
+    gameState.halfMoveClock = data.halfMoveClock || 0;
+    gameState.fullMoveNumber = data.fullMoveNumber || 1;
+    gameState.gameOver = data.gameOver || false;
+    gameState.white = data.white || null;
+    gameState.black = data.black || null;
+    gameState.winner = data.winner || null;
+    gameState.status = data.status || 'waiting';
+    
+    // Reset UI state
+    gameState.selected = null;
+    gameState.validMoves = [];
+  }
+
+  function boardToFEN() {
+    let fen = '';
+    for (let r = 0; r < 8; r++) {
+      let emptyCount = 0;
+      for (let c = 0; c < 8; c++) {
+        const piece = gameState.board[r][c];
+        if (piece) {
+          if (emptyCount > 0) {
+            fen += emptyCount;
+            emptyCount = 0;
+          }
+          fen += piece;
+        } else {
+          emptyCount++;
+        }
+      }
+      if (emptyCount > 0) {
+        fen += emptyCount;
+      }
+      if (r < 7) fen += '/';
+    }
+    return fen;
+  }
+
+  async function updateLeaderboard() {
+    if (!currentUser || !isMultiplayerGame || gameState.status !== 'completed') return;
+    
+    // Update winner's stats
+    if (gameState.winner) {
+      const winnerRef = doc(db, 'users', gameState.winner);
+      const winnerDoc = await getDoc(winnerRef);
+      if (winnerDoc.exists()) {
+        await updateDoc(winnerRef, {
+          wins: (winnerDoc.data().wins || 0) + 1
+        });
+      }
+      
+      // Update loser's stats
+      const loserId = gameState.winner === gameState.white ? gameState.black : gameState.white;
+      if (loserId) {
+        const loserRef = doc(db, 'users', loserId);
+        const loserDoc = await getDoc(loserRef);
+        if (loserDoc.exists()) {
+          await updateDoc(loserRef, {
+            losses: (loserDoc.data().losses || 0) + 1
+          });
+        }
+      }
+    } else {
+      // It's a draw, update both players
+      if (gameState.white) {
+        const whiteRef = doc(db, 'users', gameState.white);
+        const whiteDoc = await getDoc(whiteRef);
+        if (whiteDoc.exists()) {
+          await updateDoc(whiteRef, {
+            draws: (whiteDoc.data().draws || 0) + 1
+          });
+        }
+      }
+      
+      if (gameState.black) {
+        const blackRef = doc(db, 'users', gameState.black);
+        const blackDoc = await getDoc(blackRef);
+        if (blackDoc.exists()) {
+          await updateDoc(blackRef, {
+            draws: (blackDoc.data().draws || 0) + 1
+          });
+        }
+      }
+    }
+  }
+
+  async function showLeaderboard() {
+    if (!currentUser) {
+      showToast("Please sign in to view leaderboard");
+      return;
+    }
+    
+    leaderboardList.innerHTML = '';
+    leaderboardDiv.style.display = 'block';
+    
+    // Query top 10 users by wins
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, orderBy('wins', 'desc'), limit(10));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      leaderboardList.innerHTML = '<li>No players yet</li>';
+      return;
+    }
+    
+    querySnapshot.forEach((doc) => {
+      const userData = doc.data();
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <span>${userData.displayName || 'Anonymous'}</span>
+        <span>W: ${userData.wins || 0} L: ${userData.losses || 0} D: ${userData.draws || 0}</span>
+      `;
+      leaderboardList.appendChild(li);
+    });
+  }
+
+  function loadFEN(fen) {
+    const rows = fen.split('/');
+    gameState.board = [];
+    for (let r = 0; r < 8; r++) {
+      const row = [];
+      for (const ch of rows[r]) {
+        if ('12345678'.includes(ch)) {
+          for(let i=0; i<parseInt(ch); i++) row.push(null);
+        } else {
+          row.push(ch);
+        }
+      }
+      gameState.board.push(row);
+    }
+    gameState.castlingRights = { wK: true, wQ: true, bK: true, bQ: true };
+    gameState.enPassantTarget = null;
+    gameState.halfMoveClock = 0;
+    gameState.fullMoveNumber = 1;
+    gameState.turn = 'w';
+    gameState.gameOver = false;
+    gameState.selected = null;
+    gameState.validMoves = [];
+  }
+
+  function pieceCode(piece) {
+    if (!piece) return null;
+    const color = piece === piece.toUpperCase() ? 'w' : 'b';
+    return color + piece.toUpperCase();
+  }
+
+  function renderBoard() {
+    board.innerHTML = '';
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const square = document.createElement('div');
+        square.classList.add('square');
+        if ((r + c) % 2 === 0) square.classList.add('light');
+        else square.classList.add('dark');
+        square.dataset.row = r;
+        square.dataset.col = c;
+        square.setAttribute('role', 'gridcell');
+        square.setAttribute('aria-label', `Square ${String.fromCharCode(97+c)}${8-r}`);
+
+        if (gameState.validMoves.some(m => m[0] === r && m[1] === c)) {
+          square.classList.add('highlight');
+        }
+
+        const piece = gameState.board[r][c];
+        if (piece) {
+          const img = document.createElement('img');
+          img.src = pieceImages[pieceCode(piece)];
+          img.alt = pieceCode(piece).replace(/^./, c => c === 'w' ? 'White ' : 'Black ') + {
+            'P': 'Pawn',
+            'R': 'Rook',
+            'N': 'Knight',
+            'B': 'Bishop',
+            'Q': 'Queen',
+            'K': 'King'
+          }[pieceCode(piece)[1]];
+          img.classList.add('piece');
+          img.draggable = false;
+          square.appendChild(img);
+        }
+        board.appendChild(square);
+      }
+    }
+  }
+
+  // Move generation and validation
+  const DIRECTIONS = {
+    KNIGHT: [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]],
+    BISHOP: [[-1,-1],[-1,1],[1,-1],[1,1]],
+    ROOK: [[-1,0],[1,0],[0,-1],[0,1]],
+    QUEEN: [[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]],
+    KING: [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]],
+  };
+
+  function inBounds(r,c) { return r >= 0 && r < 8 && c >= 0 && c < 8; }
+  function isEmpty(r,c) { return inBounds(r,c) && !gameState.board[r][c]; }
+  function isOpponent(r,c,color) {
+    if (!inBounds(r,c)) return false;
+    const p = gameState.board[r][c];
+    if (!p) return false;
+    return pieceCode(p)[0] !== color;
+  }
+
+  function getPseudoLegalMoves(r,c) {
+    const piece = gameState.board[r][c];
+    if (!piece) return [];
+    const color = piece === piece.toUpperCase() ? 'w' : 'b';
+    const p = piece.toUpperCase();
+    const moves = [];
+    const dir = color === 'w' ? -1 : 1;
+
+    if (p === 'P') {
+      if (isEmpty(r+dir, c)) {
+        moves.push([r+dir, c]);
+        if ((color === 'w' && r === 6 || color === 'b' && r === 1) && isEmpty(r+2*dir, c)) {
+          moves.push([r+2*dir, c]);
+        }
+      }
+      for (const dc of [-1,1]) {
+        if (isOpponent(r+dir, c+dc, color)) moves.push([r+dir, c+dc]);
+      }
+      if (gameState.enPassantTarget) {
+        const [epR, epC] = gameState.enPassantTarget;
+        if (r === (color === 'w' ? 3 : 4) && Math.abs(c - epC) === 1 && epR === r + dir) {
+          moves.push([epR, epC]);
+        }
+      }
+    } else if (p === 'N') {
+      for (const [dx,dy] of DIRECTIONS.KNIGHT) {
+        const nr = r+dx, nc = c+dy;
+        if (inBounds(nr,nc) && (!gameState.board[nr][nc] || isOpponent(nr,nc,color))) moves.push([nr,nc]);
+      }
+    } else if (p === 'B' || p === 'R' || p === 'Q') {
+      const directions = [];
+      if (p === 'B' || p === 'Q') directions.push(...DIRECTIONS.BISHOP);
+      if (p === 'R' || p === 'Q') directions.push(...DIRECTIONS.ROOK);
+      for (const [dx,dy] of directions) {
+        let nr = r + dx, nc = c + dy;
+        while (inBounds(nr,nc)) {
+          if (!gameState.board[nr][nc]) moves.push([nr,nc]);
+          else {
+            if (isOpponent(nr,nc,color)) moves.push([nr,nc]);
+            break;
+          }
+          nr += dx; nc += dy;
+        }
+      }
+    } else if (p === 'K') {
+      for (const [dx,dy] of DIRECTIONS.KING) {
+        const nr = r+dx, nc = c+dy;
+        if (inBounds(nr,nc) && (!gameState.board[nr][nc] || isOpponent(nr,nc,color))) moves.push([nr,nc]);
+      }
+      // Castling
+      if (color === 'w' && r === 7 && c === 4) {
+        if (gameState.castlingRights.wK && !gameState.board[7][5] && !gameState.board[7][6] &&
+            !isSquareAttacked(7,4,'b') && !isSquareAttacked(7,5,'b') && !isSquareAttacked(7,6,'b')) {
+          moves.push([7,6]);
+        }
+        if (gameState.castlingRights.wQ && !gameState.board[7][3] && !gameState.board[7][2] && !gameState.board[7][1] &&
+            !isSquareAttacked(7,4,'b') && !isSquareAttacked(7,3,'b') && !isSquareAttacked(7,2,'b')) {
+          moves.push([7,2]);
+        }
+      }
+      if (color === 'b' && r === 0 && c === 4) {
+        if (gameState.castlingRights.bK && !gameState.board[0][5] && !gameState.board[0][6] &&
+            !isSquareAttacked(0,4,'w') && !isSquareAttacked(0,5,'w') && !isSquareAttacked(0,6,'w')) {
+          moves.push([0,6]);
+        }
+        if (gameState.castlingRights.bQ && !gameState.board[0][3] && !gameState.board[0][2] && !gameState.board[0][1] &&
+            !isSquareAttacked(0,4,'w') && !isSquareAttacked(0,3,'w') && !isSquareAttacked(0,2,'w')) {
+          moves.push([0,2]);
+        }
+      }
+    }
+    return moves;
+  }
+
+  function isSquareAttacked(r, c, byColor) {
+    for (let rr=0; rr<8; rr++) {
+      for (let cc=0; cc<8; cc++) {
+        const p = gameState.board[rr][cc];
+        if (p && pieceCode(p)[0] === byColor) {
+          const moves = getPseudoLegalMoves(rr, cc);
+          if (moves.some(m => m[0] === r && m[1] === c)) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function getLegalMoves(r, c) {
+    const piece = gameState.board[r][c];
+    if (!piece) return [];
+    if (pieceCode(piece)[0] !== gameState.turn) return [];
+    const moves = getPseudoLegalMoves(r,c);
+    const legalMoves = [];
+    for (const [nr,nc] of moves) {
+      const captured = gameState.board[nr][nc];
+      const fromPiece = gameState.board[r][c];
+      const castlingRightsBackup = {...gameState.castlingRights};
+      const enPassantBackup = gameState.enPassantTarget;
+      const halfMoveBackup = gameState.halfMoveClock;
+      const fullMoveBackup = gameState.fullMoveNumber;
+      const turnBackup = gameState.turn;
+
+      makeMove(r,c,nr,nc,true);
+
+      if (!isInCheck(turnBackup)) legalMoves.push([nr,nc]);
+
+      undoMove(r,c,nr,nc,captured,fromPiece,castlingRightsBackup,enPassantBackup,halfMoveBackup,fullMoveBackup,turnBackup);
+    }
+    return legalMoves;
+  }
+
+  function makeMove(fromR, fromC, toR, toC, testOnly=false) {
+    const piece = gameState.board[fromR][fromC];
+    const color = piece === piece.toUpperCase() ? 'w' : 'b';
+    const p = piece.toUpperCase();
+
+    if (p === 'K' && Math.abs(toC - fromC) === 2) {
+      if (toC === 6) { gameState.board[toR][5] = gameState.board[toR][7]; gameState.board[toR][7] = null; }
+      else if (toC === 2) { gameState.board[toR][3] = gameState.board[toR][0]; gameState.board[toR][0] = null; }
+    }
+
+    if (p === 'P' && gameState.enPassantTarget && toR === gameState.enPassantTarget[0] && toC === gameState.enPassantTarget[1]) {
+      if (color === 'w') gameState.board[toR+1][toC] = null;
+      else gameState.board[toR-1][toC] = null;
+    }
+
+    if (p === 'P' && (toR === 0 || toR === 7)) {
+      gameState.board[toR][toC] = color === 'w' ? 'Q' : 'q';
+    } else {
+      gameState.board[toR][toC] = piece;
+    }
+    gameState.board[fromR][fromC] = null;
+
+    if (p === 'K') {
+      if (color === 'w') { gameState.castlingRights.wK = false; gameState.castlingRights.wQ = false; }
+      else { gameState.castlingRights.bK = false; gameState.castlingRights.bQ = false; }
+    }
+    if (p === 'R') {
+      if (fromR === 7 && fromC === 0) gameState.castlingRights.wQ = false;
+      if (fromR === 7 && fromC === 7) gameState.castlingRights.wK = false;
+      if (fromR === 0 && fromC === 0) gameState.castlingRights.bQ = false;
+      if (fromR === 0 && fromC === 7) gameState.castlingRights.bK = false;
+    }
+    if (!testOnly) {
+      const opponentColor = color === 'w' ? 'b' : 'w';
+      if (toR === 7 && toC === 0 && opponentColor === 'w') gameState.castlingRights.wQ = false;
+      if (toR === 7 && toC === 7 && opponentColor === 'w') gameState.castlingRights.wK = false;
+      if (toR === 0 && toC === 0 && opponentColor === 'b') gameState.castlingRights.bQ = false;
+      if (toR === 0 && toC === 7 && opponentColor === 'b') gameState.castlingRights.bK = false;
+    }
+    if (p === 'P' && Math.abs(toR - fromR) === 2) {
+      gameState.enPassantTarget = [(fromR + toR) / 2, toC];
+    } else {
+      gameState.enPassantTarget = null;
+    }
+    if (!testOnly) {
+      if (p === 'P' || gameState.board[toR][toC]) gameState.halfMoveClock = 0;
+      else gameState.halfMoveClock++;
+      if (gameState.turn === 'b') gameState.fullMoveNumber++;
+      gameState.turn = gameState.turn === 'w' ? 'b' : 'w';
+    }
+  }
+
+  function undoMove(fromR, fromC, toR, toC, captured, movedPiece, castlingRights, enPassant, halfMoveClock, fullMoveNumber, turn) {
+    gameState.board[fromR][fromC] = movedPiece;
+    gameState.board[toR][toC] = captured;
+    gameState.castlingRights = {...castlingRights};
+    gameState.enPassantTarget = enPassant;
+    gameState.halfMoveClock = halfMoveClock;
+    gameState.fullMoveNumber = fullMoveNumber;
+    gameState.turn = turn;
+  }
+
+  function isInCheck(color) {
+    const kingPos = findKing(color);
+    if (!kingPos) return false;
+    const opponent = color === 'w' ? 'b' : 'w';
+    return isSquareAttacked(kingPos[0], kingPos[1], opponent);
+  }
+  function findKing(color) {
+    for (let r=0; r<8; r++) for (let c=0; c<8; c++) {
+      const p = gameState.board[r][c];
+      if (p && pieceCode(p) === color + 'K') return [r,c];
+    }
+    return null;
+  }
+  function isCheckmate(color) { return isInCheck(color) && !hasLegalMoves(color); }
+  function isStalemate(color) { return !isInCheck(color) && !hasLegalMoves(color); }
+  function hasLegalMoves(color) {
+    for (let r=0; r<8; r++) for (let c=0; c<8; c++) {
+      const p = gameState.board[r][c];
+      if (p && pieceCode(p)[0] === color) {
+        if (getLegalMoves(r,c).length > 0) return true;
+      }
+    }
+    return false;
+  }
+
+  // AI for local play
+  const pieceValues = { 'P': 100, 'N': 320, 'B': 330, 'R': 500, 'Q': 900, 'K': 20000 };
+  function evaluateBoard() {
+    let score = 0;
+    for (let r=0; r<8; r++) for (let c=0; c<8; c++) {
+      const p = gameState.board[r][c];
+      if (p) {
+        const color = pieceCode(p)[0];
+        const type = pieceCode(p)[1];
+        const value = pieceValues[type];
+        score += (color === 'w' ? value : -value);
+      }
+    }
+    return score;
+  }
+  function minimax(depth, alpha, beta, maximizingPlayer) {
+    if (depth === 0 || gameState.gameOver) return evaluateBoard();
+    const color = maximizingPlayer ? 'w' : 'b';
+    if (isCheckmate(color)) return maximizingPlayer ? -Infinity : Infinity;
+    if (isStalemate(color)) return 0;
+    let bestEval = maximizingPlayer ? -Infinity : Infinity;
+    let bestMove = null;
+    for (let r=0; r<8; r++) for (let c=0; c<8; c++) {
+      const p = gameState.board[r][c];
+      if (p && pieceCode(p)[0] === color) {
+        const moves = getLegalMoves(r,c);
+        for (const [nr,nc] of moves) {
+          const captured = gameState.board[nr][nc];
+          const movedPiece = gameState.board[r][c];
+          const castlingRightsBackup = {...gameState.castlingRights};
+          const enPassantBackup = gameState.enPassantTarget;
+          const halfMoveBackup = gameState.halfMoveClock;
+          const fullMoveBackup = gameState.fullMoveNumber;
+          const turnBackup = gameState.turn;
+          makeMove(r,c,nr,nc,true);
+          const evalScore = minimax(depth - 1, alpha, beta, !maximizingPlayer);
+          undoMove(r,c,nr,nc,captured,movedPiece,castlingRightsBackup,enPassantBackup,halfMoveBackup,fullMoveBackup,turnBackup);
+          if (maximizingPlayer) {
+            if (evalScore > bestEval) { bestEval = evalScore; if (depth === AI_DEPTH) bestMove = {from: [r,c], to: [nr,nc]}; }
+            alpha = Math.max(alpha, evalScore);
+            if (beta <= alpha) break;
+          } else {
+            if (evalScore < bestEval) { bestEval = evalScore; if (depth === AI_DEPTH) bestMove = {from: [r,c], to: [nr,nc]}; }
+            beta = Math.min(beta, evalScore);
+            if (beta <= alpha) break;
+          }
+        }
+      }
+    }
+    if (depth === AI_DEPTH) return bestMove;
+    return bestEval;
+  }
+  function aiMove() {
+    if (gameState.gameOver || isMultiplayerGame) return;
+    const bestMove = minimax(AI_DEPTH, -Infinity, Infinity, false);
+    if (!bestMove) {
+      if (isInCheck('b')) showToast("🏆 White wins by checkmate!");
+      else showToast("🤝 Draw by stalemate!");
+      gameState.gameOver = true;
+      restartBtn.disabled = false;
+      return;
+    }
+    movePiece(bestMove.from[0], bestMove.from[1], bestMove.to[0], bestMove.to[1]);
+  }
+
+  async function movePiece(fromR, fromC, toR, toC) {
+    if (gameState.gameOver) return;
+    
+    // In multiplayer, check if it's this player's turn
+    if (isMultiplayerGame) {
+      const currentPlayerColor = playerColor;
+      if (gameState.turn !== currentPlayerColor) {
+        showToast("Not your turn");
+        return;
+      }
+    }
+    
+    const piece = gameState.board[fromR][fromC];
+    const color = piece === piece.toUpperCase() ? 'w' : 'b';
+    const p = piece.toUpperCase();
+
+    if (p === 'K' && Math.abs(toC - fromC) === 2) {
+      if (toC === 6) { gameState.board[toR][5] = gameState.board[toR][7]; gameState.board[toR][7] = null; }
+      else if (toC === 2) { gameState.board[toR][3] = gameState.board[toR][0]; gameState.board[toR][0] = null; }
+    }
+
+    if (p === 'P' && gameState.enPassantTarget && toR === gameState.enPassantTarget[0] && toC === gameState.enPassantTarget[1]) {
+      if (color === 'w') gameState.board[toR+1][toC] = null;
+      else gameState.board[toR-1][toC] = null;
+    }
+
+    if (p === 'P' && (toR === 0 || toR === 7)) {
+      gameState.board[toR][toC] = color === 'w' ? 'Q' : 'q';
+    } else {
+      gameState.board[toR][toC] = piece;
+    }
+    gameState.board[fromR][fromC] = null;
+
+    if (p === 'K') {
+      if (color === 'w') { gameState.castlingRights.wK = false; gameState.castlingRights.wQ = false; }
+      else { gameState.castlingRights.bK = false; gameState.castlingRights.bQ = false; }
+    }
+    if (p === 'R') {
+      if (fromR === 7 && fromC === 0) gameState.castlingRights.wQ = false;
+      if (fromR === 7 && fromC === 7) gameState.castlingRights.wK = false;
+      if (fromR === 0 && fromC === 0) gameState.castlingRights.bQ = false;
+      if (fromR === 0 && fromC === 7) gameState.castlingRights.bK = false;
+    }
+    const opponentColor = color === 'w' ? 'b' : 'w';
+    if (toR === 7 && toC === 0 && opponentColor === 'w') gameState.castlingRights.wQ = false;
+    if (toR === 7 && toC === 7 && opponentColor === 'w') gameState.castlingRights.wK = false;
+    if (toR === 0 && toC === 0 && opponentColor === 'b') gameState.castlingRights.bQ = false;
+    if (toR === 0 && toC === 7 && opponentColor === 'b') gameState.castlingRights.bK = false;
+
+    if (p === 'P' && Math.abs(toR - fromR) === 2) {
+      gameState.enPassantTarget = [(fromR + toR) / 2, toC];
+    } else {
+      gameState.enPassantTarget = null;
+    }
+    if (p === 'P' || gameState.board[toR][toC]) gameState.halfMoveClock = 0;
+    else gameState.halfMoveClock++;
+    if (gameState.turn === 'b') gameState.fullMoveNumber++;
+    gameState.turn = gameState.turn === 'w' ? 'b' : 'w';
+    gameState.selected = null;
+    gameState.validMoves = [];
+
+    // Check for checkmate or stalemate
+    let gameOverStatus = false;
+    if (isCheckmate(gameState.turn)) {
+      if (isMultiplayerGame) {
+        gameState.status = 'completed';
+        gameState.winner = gameState.turn === 'w' ? gameState.black : gameState.white;
+        showToast(`${gameState.turn === 'w' ? "Black" : "White"} wins by checkmate!`);
+      } else {
+        showToast(`${gameState.turn === 'w' ? "Black" : "White"} wins by checkmate!`);
+      }
+      gameState.gameOver = true;
+      gameOverStatus = true;
+      restartBtn.disabled = false;
+    } else if (isStalemate(gameState.turn)) {
+      if (isMultiplayerGame) {
+        gameState.status = 'completed';
+        gameState.winner = null; // Draw
+        showToast("Draw by stalemate!");
+      } else {
+        showToast("Draw by stalemate!");
+      }
+      gameState.gameOver = true;
+      gameOverStatus = true;
+      restartBtn.disabled = false;
+    }
+
+    // For multiplayer games, update Firestore
+    if (isMultiplayerGame && currentGameId) {
+      const gameRef = doc(db, 'games', currentGameId);
+      await updateDoc(gameRef, {
+        ...serializeGameState(),
+        lastMove: new Date()
+      });
+      
+      // Update leaderboard if game is over
+      if (gameOverStatus) {
+        updateLeaderboard();
+      }
+    } else {
+      // For local play, render and update
+      renderBoard();
+      updateStatus();
+      
+      // AI move if black to move
+      if (!gameState.gameOver && gameState.turn === 'b' && !isMultiplayerGame) {
+        setTimeout(aiMove, 100);
+      }
+    }
+  }
+
+  board.addEventListener('click', e => {
+    if (gameState.gameOver) return;
+    
+    // In multiplayer, check if it's this player's turn
+    if (isMultiplayerGame && gameState.turn !== playerColor) return;
+    
+    // In local play, human is always white
+    if (!isMultiplayerGame && gameState.turn !== 'w') return;
+    
+    const sq = e.target.closest('.square');
+    if (!sq) return;
+    const r = parseInt(sq.dataset.row);
+    const c = parseInt(sq.dataset.col);
+
+    if (gameState.selected) {
+      if (gameState.validMoves.some(m => m[0] === r && m[1] === c)) {
+        movePiece(gameState.selected[0], gameState.selected[1], r, c);
+        return;
+      } else {
+        gameState.selected = null;
+        gameState.validMoves = [];
+        renderBoard();
+      }
+    }
+    
+    const piece = gameState.board[r][c];
+    if (piece && pieceCode(piece)[0] === gameState.turn) {
+      const moves = getLegalMoves(r,c);
+      if (moves.length > 0) {
+        gameState.selected = [r,c];
+        gameState.validMoves = moves;
+        renderBoard();
+      }
+    }
+  });
+
+  function updateStatus() {
+    if (isMultiplayerGame) {
+      if (gameState.status === 'waiting') {
+        status.textContent = "Waiting for opponent to join...";
+      } else if (gameState.status === 'completed') {
+        if (gameState.winner) {
+          const winnerColor = gameState.winner === gameState.white ? "White" : "Black";
+          status.textContent = `${winnerColor} won the game!`;
+        } else {
+          status.textContent = "Game ended in a draw!";
+        }
+      } else {
+        const currentPlayerColor = playerColor === 'w' ? "White" : "Black";
+        const isYourTurn = gameState.turn === playerColor;
+        status.textContent = `You are ${currentPlayerColor}. ${isYourTurn ? "Your turn!" : "Opponent's turn..."}`;
+      }
+    } else if (!gameState.gameOver) {
+      status.textContent = (gameState.turn === 'w' ? "White" : "Black") + " to move";
+    }
+  }
+
+  function showToast(msg) {
+    toast.innerText = msg;
+    toast.style.display = "block";
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => { toast.style.display = "none"; }, 4000);
+  }
+
+  startBtn.addEventListener('click', () => {
+    leaveMultiplayerGame();
+    loadFEN(initialFEN);
+    updateStatus();
+    renderBoard();
+    restartBtn.disabled = false;
+    toast.style.display = "none";
+    leaderboardDiv.style.display = 'none';
+  });
+  
+  restartBtn.addEventListener('click', () => {
+    if (isMultiplayerGame) {
+      leaveMultiplayerGame();
+      // For multiplayer, just reload the page to ensure everything is reset
+      window.location.reload();
+    } else {
+      loadFEN(initialFEN);
+      updateStatus();
+      renderBoard();
+      restartBtn.disabled = false;
+      toast.style.display = "none";
+      leaderboardDiv.style.display = 'none';
+    }
+  });
+
+  createGameBtn.addEventListener('click', createGame);
+  joinGameBtn.addEventListener('click', joinGame);
+  showLeaderboardBtn.addEventListener('click', showLeaderboard);
+
+  aboutBtn.addEventListener('click', () => {
+    aboutDialog.style.display = 'block';
+    closeAbout.focus();
+  });
+  closeAbout.addEventListener('click', () => {
+    aboutDialog.style.display = 'none';
+    aboutBtn.focus();
+  });
+  window.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && aboutDialog.style.display === 'block') {
+      aboutDialog.style.display = 'none';
+      aboutBtn.focus();
+    }
+    // Hide leaderboard with Escape
+    if (e.key === 'Escape' && leaderboardDiv.style.display === 'block') {
+      leaderboardDiv.style.display = 'none';
+    }
+  });
+
+  // Initialize UI on load
+  restartBtn.disabled = true;
+  status.textContent = "Sign in and create/join a game";
+  renderBoard();
+</script>
+</body>
+</html>
